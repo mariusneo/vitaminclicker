@@ -1,0 +1,6 @@
+<resources>
+
+    <style name="windowTitleBackgroundStyle">
+        <item name="android:background">@color/bluemamba</item>
+    </style>
+</resources>

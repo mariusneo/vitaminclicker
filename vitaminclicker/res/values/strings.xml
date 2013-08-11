@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Vitamin Clicker</string>
+    <string name="btn_click_label">COUNT</string>
+	<string name="btn_statistics_label">Statistics</string>
+	<string name="day">Day</string>
+	<string name="vitamin_counts">Vitamin count</string>
+</resources>

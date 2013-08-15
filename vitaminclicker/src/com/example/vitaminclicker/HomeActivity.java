@@ -30,6 +30,12 @@ public class HomeActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_home);
 
+	}
+	
+	@Override
+	public void onStart(){
+		super.onStart();
+		
 		db = new VitaminDatabase(this);
 		Cursor todaysVitaminCursor = db.readVitaminCount(new Date());
 

@@ -10,17 +10,19 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-import org.achartengine.ChartFactory;
 import org.achartengine.GraphicalView;
 import org.achartengine.chart.PointStyle;
+import org.achartengine.chart.TimeChart;
+import org.achartengine.model.TimeSeries;
 import org.achartengine.model.XYMultipleSeriesDataset;
-import org.achartengine.model.XYSeries;
 import org.achartengine.renderer.XYMultipleSeriesRenderer;
 import org.achartengine.renderer.XYSeriesRenderer;
 
 import android.app.Activity;
 import android.database.Cursor;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Paint.Align;
 import android.os.Bundle;
 import android.text.format.DateFormat;
@@ -34,34 +36,45 @@ public class StatisticsActivity extends Activity {
 
 	private static final String MONTH_FORMAT = "MMMMM";
 
+	private static final String DAY_FORMAT = "d";
+
 	private static final int X_AXIS_DAYS_COUNT = 10;
 	private static final int Y_AXIS_VITAMIN_COUNT = 8;
+	
+	private static final int TWELVE_HOURS = 12* 60*60*1000;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		db = new VitaminDatabase(this);
 		Calendar aCalendar = Calendar.getInstance();
-		// set DATE to 1, so first date of previous month
-		aCalendar.set(Calendar.DATE, 1);
-		Date firstDateOfCurrentMonth = aCalendar.getTime();
-		// set actual maximum date of previous month
+		resetTime(aCalendar);
 		aCalendar.set(Calendar.DATE,
 				aCalendar.getActualMaximum(Calendar.DAY_OF_MONTH));
-		// read it
 		Date lastDateOfCurrentMonth = aCalendar.getTime();
 		int daysInCurrentMonth = aCalendar.get(Calendar.DAY_OF_MONTH);
+		
+		aCalendar.set(Calendar.DAY_OF_MONTH, 1) ;
+		aCalendar.add(Calendar.MONTH, -1);    
+		Date firstDateOfPreviousMonth = aCalendar.getTime();
+
 		Calendar now = Calendar.getInstance();
-		vitaminCountsCursor = db.readVitaminCounts(firstDateOfCurrentMonth,
-				lastDateOfCurrentMonth);
+		db = new VitaminDatabase(this);
+		vitaminCountsCursor = db.readVitaminCounts(firstDateOfPreviousMonth,
+				now.getTime());
+		resetTime(now);
 
 		Date date = null;
-		int dayOfMonth = 1;
+		Date dayOfMonth = firstDateOfPreviousMonth;
 		int maxVitaminCount = 0;
 
-		double[] days = new double[now.get(Calendar.DAY_OF_MONTH)];
-		double[] vitaminCounts = new double[now.get(Calendar.DAY_OF_MONTH)];
+		
+		String title = DateFormat.format(MONTH_FORMAT, new Date())
+				.toString();		
+		XYMultipleSeriesDataset dataset = new XYMultipleSeriesDataset();
+		final TimeSeries series = new TimeSeries(title);
+		
+		
 		if (vitaminCountsCursor.getCount() > 0) {
 			vitaminCountsCursor.moveToFirst();
 
@@ -79,14 +92,14 @@ public class StatisticsActivity extends Activity {
 				if (date != null) {
 					Calendar dayCalendar = Calendar.getInstance();
 					dayCalendar.setTime(date);
-					int currentDayOfMonth = dayCalendar
-							.get(Calendar.DAY_OF_MONTH);
+					Date currentDayOfMonth = dayCalendar.getTime();
 
-					if (currentDayOfMonth > dayOfMonth) {
+					if (compareDays(currentDayOfMonth, dayOfMonth) > 0) {
 						// fill the gaps
-						for (; dayOfMonth < currentDayOfMonth; dayOfMonth++) {
-							days[dayOfMonth - 1] = dayOfMonth;
-							vitaminCounts[dayOfMonth - 1] = 0;
+						for (; compareDays(dayOfMonth, currentDayOfMonth) < 0;) {
+							series.add(dayOfMonth, 0);
+
+							dayOfMonth = increaseDay(dayOfMonth, 1);
 						}
 					}
 
@@ -94,62 +107,82 @@ public class StatisticsActivity extends Activity {
 						maxVitaminCount = count;
 					}
 
-					vitaminCounts[currentDayOfMonth - 1] = count;
-					days[currentDayOfMonth - 1] = currentDayOfMonth;
-					dayOfMonth = currentDayOfMonth + 1;
+					series.add(dayOfMonth, count);
+					dayOfMonth = increaseDay(dayOfMonth, 1);
 				}
 
 			} while (vitaminCountsCursor.moveToNext());
 
 		}
 
-		for (; dayOfMonth <= now.get(Calendar.DAY_OF_MONTH); dayOfMonth++) {
+		for (; compareDays(dayOfMonth, now.getTime()) <= 0;) {
 			// fill the last gaps
-			days[dayOfMonth - 1] = dayOfMonth;
-			vitaminCounts[dayOfMonth - 1] = 0;
+			series.add(dayOfMonth, 0);
+
+			dayOfMonth = increaseDay(dayOfMonth, 1);
 		}
 
-		String currentMonth = DateFormat.format(MONTH_FORMAT, new Date())
-				.toString();
-
-		String[] titles = new String[] { currentMonth };
-		List<double[]> xValues = new ArrayList<double[]>();
-		xValues.add(days);
-		List<double[]> yValues = new ArrayList<double[]>();
-		yValues.add(vitaminCounts);
-		XYMultipleSeriesDataset dataset = new XYMultipleSeriesDataset();
-		addXYSeries(dataset, titles, xValues, yValues, 0);
+		dataset.addSeries(series);
 
 		int[] colors = new int[] { Color.BLUE };
 		PointStyle[] styles = new PointStyle[] { PointStyle.CIRCLE };
-		XYMultipleSeriesRenderer renderer = buildRenderer(colors, styles);
+		final XYMultipleSeriesRenderer renderer = buildRenderer(colors, styles);
 		int length = renderer.getSeriesRendererCount();
 		for (int i = 0; i < length; i++) {
 			((XYSeriesRenderer) renderer.getSeriesRendererAt(i))
 					.setFillPoints(true);
 		}
-		setChartSettings(renderer, currentMonth, getString(R.string.day),
-				getString(R.string.vitamin_counts), 0.9,
-				X_AXIS_DAYS_COUNT + 0.1, 0, Y_AXIS_VITAMIN_COUNT, Color.BLACK,
+
+		double minX;
+		double maxX;
+		Date actualDayOfMonth = now.getTime();
+		int actualDayOfMonthIndex = now.get(Calendar.DAY_OF_MONTH);
+		if (actualDayOfMonthIndex + (X_AXIS_DAYS_COUNT / 2) > daysInCurrentMonth) {
+			minX = increaseDay(lastDateOfCurrentMonth, - X_AXIS_DAYS_COUNT).getTime();
+			maxX = lastDateOfCurrentMonth.getTime();
+		} else {
+			minX = increaseDay(actualDayOfMonth,  - (X_AXIS_DAYS_COUNT / 2)).getTime();
+			maxX = increaseDay(actualDayOfMonth,  (X_AXIS_DAYS_COUNT / 2)).getTime();
+		}
+		
+		System.out.println("minX " + new Date((long)minX) + " maxX " + new Date((long)maxX));
+
+		setChartSettings(renderer, title, getString(R.string.day),
+				getString(R.string.vitamin_counts), minX, maxX, 0,
+				Y_AXIS_VITAMIN_COUNT, Color.BLACK,
 				getResources().getColor(R.color.black));
 		renderer.setXLabels(X_AXIS_DAYS_COUNT);
 		renderer.setYLabels(Y_AXIS_VITAMIN_COUNT);
 		renderer.setXLabelsColor(Color.BLACK);
-		renderer.setYLabelsColor(0,Color.BLACK);
+		renderer.setYLabelsColor(0, Color.BLACK);
 		renderer.setShowGrid(true);
 		renderer.setShowLegend(false);
 		renderer.setXLabelsAlign(Align.RIGHT);
 		renderer.setYLabelsAlign(Align.RIGHT);
 		renderer.setPanLimits(new double[] {
-				0.9,
-				daysInCurrentMonth + 0.1,
+				firstDateOfPreviousMonth.getTime() - TWELVE_HOURS,
+				lastDateOfCurrentMonth.getTime() + TWELVE_HOURS,
 				0,
 				maxVitaminCount > Y_AXIS_VITAMIN_COUNT ? maxVitaminCount
-						: Y_AXIS_VITAMIN_COUNT});
+						: Y_AXIS_VITAMIN_COUNT });
 
-		GraphicalView graphicalView = ChartFactory.getCubeLineChartView(this, dataset,
-				renderer, 0.01f);
-		graphicalView.setBackgroundDrawable(getResources().getDrawable(R.color.white));
+		TimeChart chart = new TimeChart(dataset, renderer){
+			public void draw(Canvas canvas, int x, int y, int width, int height, Paint paint) {
+				Calendar latestDateShown = Calendar.getInstance();
+				latestDateShown.setTimeInMillis((long)renderer.getXAxisMax());
+				String currentMonth = DateFormat.format(MONTH_FORMAT, latestDateShown)
+						.toString();
+				renderer.setChartTitle(currentMonth);
+				super.draw(canvas,  x,  y,  width,  height, paint);				
+			}
+		};
+	    chart.setDateFormat(DAY_FORMAT);
+	    GraphicalView graphicalView = new GraphicalView(this, chart);
+		
+
+		graphicalView.setBackgroundDrawable(getResources().getDrawable(
+				R.color.white));
+		
 		setContentView(graphicalView);
 	}
 
@@ -158,6 +191,27 @@ public class StatisticsActivity extends Activity {
 		super.onDestroy();
 		vitaminCountsCursor.close();
 		db.close();
+	}
+	
+	private void resetTime(Calendar c){
+		c.set(Calendar.HOUR_OF_DAY, 0);
+		c.set(Calendar.MINUTE, 0);
+		c.set(Calendar.SECOND, 0);
+		c.set(Calendar.MILLISECOND, 0);
+	}
+	
+	
+	private Date increaseDay(Date date, int value){
+		Calendar c = Calendar.getInstance();
+		c.setTime(date);
+		c.add(Calendar.DAY_OF_MONTH, value);
+		return c.getTime();
+	}
+
+	private int compareDays(Date d1, Date d2) {
+		Date date1 = new Date(d1.getYear(), d1.getMonth(), d1.getDate());
+		Date date2 = new Date(d2.getYear(), d2.getMonth(), d2.getDate());
+		return date1.compareTo(date2);
 	}
 
 	/**
@@ -236,20 +290,5 @@ public class StatisticsActivity extends Activity {
 		renderer.setYAxisMax(yMax);
 		renderer.setAxesColor(axesColor);
 		renderer.setLabelsColor(labelsColor);
-	}
-
-	public void addXYSeries(XYMultipleSeriesDataset dataset, String[] titles,
-			List<double[]> xValues, List<double[]> yValues, int scale) {
-		int length = titles.length;
-		for (int i = 0; i < length; i++) {
-			XYSeries series = new XYSeries(titles[i], scale);
-			double[] xV = xValues.get(i);
-			double[] yV = yValues.get(i);
-			int seriesLength = xV.length;
-			for (int k = 0; k < seriesLength; k++) {
-				series.add(xV[k], yV[k]);
-			}
-			dataset.addSeries(series);
-		}
 	}
 }

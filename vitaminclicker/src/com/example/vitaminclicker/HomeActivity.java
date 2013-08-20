@@ -30,6 +30,9 @@ public class HomeActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_home);
 
+		progressBar = (ProgressBar) findViewById(R.id.progressBar);
+		progressBar.setMax(VITAMIN_COUNT_NEEDED);
+
 	}
 	
 	@Override
@@ -50,12 +53,13 @@ public class HomeActivity extends Activity {
 			vitaminCount = 0;
 		}
 
-		progressBar = (ProgressBar) findViewById(R.id.progressBar);
-		progressBar.setMax(VITAMIN_COUNT_NEEDED);
-
+	}
+	
+	@Override
+	public void onResume(){
+		super.onResume();
 		int progress = vitaminCount > VITAMIN_COUNT_NEEDED ? VITAMIN_COUNT_NEEDED
 				: vitaminCount;
-
 		progressBar.setProgress(progress);
 
 		TextView vitaminCountText = (TextView) findViewById(R.id.vitaminCount);
@@ -84,8 +88,8 @@ public class HomeActivity extends Activity {
 	}
 
 	@Override
-	public void onDestroy() {
-		super.onDestroy();
+	public void onStop() {
+		super.onStop();
 		db.close();
 	}
 }

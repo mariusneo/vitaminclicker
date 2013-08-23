@@ -5,10 +5,8 @@ import static com.example.vitaminclicker.VitaminCountContract.CountEntry.COLUMN_
 import static com.example.vitaminclicker.VitaminDatabase.YYYY_MM_DD_FORMAT;
 
 import java.text.ParseException;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
 
 import org.achartengine.GraphicalView;
 import org.achartengine.chart.PointStyle;

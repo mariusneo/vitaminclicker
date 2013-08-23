@@ -6,4 +6,11 @@
 	<string name="btn_statistics_label">Statistics</string>
 	<string name="day">Day</string>
 	<string name="vitamin_counts">Vitamin count</string>
+	<string name="menu_info">Info</string>
+	<string name="info">Info</string>
+	<string name="about">About</string>
+	<string name="developer">Developer : </string>
+	<string name="version">Version : </string>
+	<string name="source_code">Source code : </string>
+	<string name="githubLink"><a href="https://github.com/mariusneo/vitaminclicker">GitHub</a></string>
 </resources>

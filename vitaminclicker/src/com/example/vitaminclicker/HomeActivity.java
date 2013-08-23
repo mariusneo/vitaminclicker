@@ -8,6 +8,8 @@ import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -17,6 +19,9 @@ import com.example.vitaminclicker.VitaminCountContract.CountEntry;
 public class HomeActivity extends Activity {
 
 	private static final int VITAMIN_COUNT_NEEDED = 5;
+	
+	private static final int MENU_INFO = 1;
+	
 	private int vitaminCount;
 
 	private long vitaminCountId;
@@ -34,6 +39,22 @@ public class HomeActivity extends Activity {
 		progressBar.setMax(VITAMIN_COUNT_NEEDED);
 
 	}
+	
+	/**
+     * Invoked during init to give the Activity a chance to set up its Menu.
+     *
+     * @param menu the Menu to which entries may be added
+     * @return true
+     */
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
+
+        menu.add(0, MENU_INFO, 0, R.string.menu_info);
+
+        return true;
+    }
+
 	
 	@Override
 	public void onStart(){
@@ -87,6 +108,25 @@ public class HomeActivity extends Activity {
 		startActivity(intent);
 	}
 
+	
+	 /**
+     * Invoked when the user selects an item from the Menu.
+     *
+     * @param item the Menu entry which was selected
+     * @return true if the Menu item was legit (and we consumed it), false
+     *         otherwise
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case MENU_INFO:
+            	Intent intent = new Intent(HomeActivity.this, InfoActivity.class);
+        		startActivity(intent);
+                return true;
+        }
+        return false;
+    }
+	
 	@Override
 	public void onStop() {
 		super.onStop();

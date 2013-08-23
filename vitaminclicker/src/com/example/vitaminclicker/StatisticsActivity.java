@@ -31,18 +31,25 @@ import android.util.Log;
 public class StatisticsActivity extends Activity {
 	public static final String TAG = "StatisticsActivity";
 
-	private Cursor vitaminCountsCursor;
-	private VitaminDatabase db;
-
 	private static final String MONTH_FORMAT = "MMMMM";
 
 	private static final String DAY_FORMAT = "d";
+	
+	private static final String DATASET_KEY = "dataset";
+	private static final String RENDERER_KEY = "renderer";
+	private static final String SERIES_KEY = "series";
 
 	private static final int X_AXIS_DAYS_COUNT = 10;
 	private static final int Y_AXIS_VITAMIN_COUNT = 8;
 	
 	private static final int TWELVE_HOURS = 12* 60*60*1000;
 
+	private XYMultipleSeriesDataset mDataset;
+	private XYMultipleSeriesRenderer mRenderer;
+	private TimeSeries mSeries;
+	private GraphicalView mGraphicalView;
+	
+	
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -58,12 +65,6 @@ public class StatisticsActivity extends Activity {
 		aCalendar.add(Calendar.MONTH, -1);    
 		Date firstDateOfPreviousMonth = aCalendar.getTime();
 
-		Calendar now = Calendar.getInstance();
-		db = new VitaminDatabase(this);
-		vitaminCountsCursor = db.readVitaminCounts(firstDateOfPreviousMonth,
-				now.getTime());
-		resetTime(now);
-
 		Date date = null;
 		Date dayOfMonth = firstDateOfPreviousMonth;
 		int maxVitaminCount = 0;
@@ -71,9 +72,14 @@ public class StatisticsActivity extends Activity {
 		
 		String title = DateFormat.format(MONTH_FORMAT, new Date())
 				.toString();		
-		XYMultipleSeriesDataset dataset = new XYMultipleSeriesDataset();
-		final TimeSeries series = new TimeSeries(title);
+		mSeries = new TimeSeries(title);
 		
+		
+		Calendar now = Calendar.getInstance();
+		VitaminDatabase db = new VitaminDatabase(this);
+		Cursor vitaminCountsCursor = db.readVitaminCounts(firstDateOfPreviousMonth,
+				now.getTime());
+		resetTime(now);
 		
 		if (vitaminCountsCursor.getCount() > 0) {
 			vitaminCountsCursor.moveToFirst();
@@ -97,7 +103,7 @@ public class StatisticsActivity extends Activity {
 					if (compareDays(currentDayOfMonth, dayOfMonth) > 0) {
 						// fill the gaps
 						for (; compareDays(dayOfMonth, currentDayOfMonth) < 0;) {
-							series.add(dayOfMonth, 0);
+							mSeries.add(dayOfMonth, 0);
 
 							dayOfMonth = increaseDay(dayOfMonth, 1);
 						}
@@ -107,29 +113,33 @@ public class StatisticsActivity extends Activity {
 						maxVitaminCount = count;
 					}
 
-					series.add(dayOfMonth, count);
+					mSeries.add(dayOfMonth, count);
 					dayOfMonth = increaseDay(dayOfMonth, 1);
 				}
 
 			} while (vitaminCountsCursor.moveToNext());
 
 		}
-
+		
+		vitaminCountsCursor.close();
+		db.close();
+		
 		for (; compareDays(dayOfMonth, now.getTime()) <= 0;) {
 			// fill the last gaps
-			series.add(dayOfMonth, 0);
+			mSeries.add(dayOfMonth, 0);
 
 			dayOfMonth = increaseDay(dayOfMonth, 1);
 		}
 
-		dataset.addSeries(series);
+		mDataset = new XYMultipleSeriesDataset();
+		mDataset.addSeries(mSeries);
 
 		int[] colors = new int[] { Color.BLUE };
 		PointStyle[] styles = new PointStyle[] { PointStyle.CIRCLE };
-		final XYMultipleSeriesRenderer renderer = buildRenderer(colors, styles);
-		int length = renderer.getSeriesRendererCount();
+		mRenderer = buildRenderer(colors, styles);
+		int length = mRenderer.getSeriesRendererCount();
 		for (int i = 0; i < length; i++) {
-			((XYSeriesRenderer) renderer.getSeriesRendererAt(i))
+			((XYSeriesRenderer) mRenderer.getSeriesRendererAt(i))
 					.setFillPoints(true);
 		}
 
@@ -145,54 +155,59 @@ public class StatisticsActivity extends Activity {
 			maxX = increaseDay(actualDayOfMonth,  (X_AXIS_DAYS_COUNT / 2)).getTime();
 		}
 		
-		System.out.println("minX " + new Date((long)minX) + " maxX " + new Date((long)maxX));
-
-		setChartSettings(renderer, title, getString(R.string.day),
+		setChartSettings(mRenderer, title, getString(R.string.day),
 				getString(R.string.vitamin_counts), minX, maxX, 0,
 				Y_AXIS_VITAMIN_COUNT, Color.BLACK,
 				getResources().getColor(R.color.black));
-		renderer.setXLabels(X_AXIS_DAYS_COUNT);
-		renderer.setYLabels(Y_AXIS_VITAMIN_COUNT);
-		renderer.setXLabelsColor(Color.BLACK);
-		renderer.setYLabelsColor(0, Color.BLACK);
-		renderer.setShowGrid(true);
-		renderer.setShowLegend(false);
-		renderer.setXLabelsAlign(Align.RIGHT);
-		renderer.setYLabelsAlign(Align.RIGHT);
-		renderer.setPanLimits(new double[] {
+		
+		mRenderer.setPanLimits(new double[] {
 				firstDateOfPreviousMonth.getTime() - TWELVE_HOURS,
 				lastDateOfCurrentMonth.getTime() + TWELVE_HOURS,
 				0,
 				maxVitaminCount > Y_AXIS_VITAMIN_COUNT ? maxVitaminCount
 						: Y_AXIS_VITAMIN_COUNT });
 
-		TimeChart chart = new TimeChart(dataset, renderer){
+		TimeChart chart = new TimeChart(mDataset, mRenderer){
 			public void draw(Canvas canvas, int x, int y, int width, int height, Paint paint) {
 				Calendar latestDateShown = Calendar.getInstance();
-				latestDateShown.setTimeInMillis((long)renderer.getXAxisMax());
+				latestDateShown.setTimeInMillis((long)mRenderer.getXAxisMax());
 				String currentMonth = DateFormat.format(MONTH_FORMAT, latestDateShown)
 						.toString();
-				renderer.setChartTitle(currentMonth);
+				mRenderer.setChartTitle(currentMonth);
 				super.draw(canvas,  x,  y,  width,  height, paint);				
 			}
 		};
 	    chart.setDateFormat(DAY_FORMAT);
-	    GraphicalView graphicalView = new GraphicalView(this, chart);
+	    mGraphicalView = new GraphicalView(this, chart);
 		
-
-		graphicalView.setBackgroundDrawable(getResources().getDrawable(
+	    mGraphicalView.setBackgroundDrawable(getResources().getDrawable(
 				R.color.white));
 		
-		setContentView(graphicalView);
-	}
-
-	@Override
-	protected void onDestroy() {
-		super.onDestroy();
-		vitaminCountsCursor.close();
-		db.close();
+		setContentView(mGraphicalView);
 	}
 	
+	
+	@Override
+	  protected void onSaveInstanceState(Bundle outState) {
+	    super.onSaveInstanceState(outState);
+	    // save the current data, for instance when changing screen orientation
+	    outState.putSerializable(DATASET_KEY, mDataset);
+	    outState.putSerializable(RENDERER_KEY, mRenderer);
+	    outState.putSerializable(SERIES_KEY, mSeries);
+	  }
+
+	  @Override
+	  protected void onRestoreInstanceState(Bundle savedState) {
+	    super.onRestoreInstanceState(savedState);
+	    // restore the current data, for instance when changing the screen
+	    // orientation
+	    mDataset = (XYMultipleSeriesDataset) savedState.getSerializable(DATASET_KEY);
+	    mRenderer = (XYMultipleSeriesRenderer) savedState.getSerializable(RENDERER_KEY);
+	    mSeries = (TimeSeries) savedState.getSerializable(SERIES_KEY);
+	  }
+	
+	
+  
 	private void resetTime(Calendar c){
 		c.set(Calendar.HOUR_OF_DAY, 0);
 		c.set(Calendar.MINUTE, 0);
@@ -227,6 +242,15 @@ public class StatisticsActivity extends Activity {
 			PointStyle[] styles) {
 		XYMultipleSeriesRenderer renderer = new XYMultipleSeriesRenderer();
 		setRenderer(renderer, colors, styles);
+		
+		renderer.setXLabels(X_AXIS_DAYS_COUNT);
+		renderer.setYLabels(Y_AXIS_VITAMIN_COUNT);
+		renderer.setXLabelsColor(Color.BLACK);
+		renderer.setYLabelsColor(0, Color.BLACK);
+		renderer.setShowGrid(true);
+		renderer.setShowLegend(false);
+		renderer.setXLabelsAlign(Align.RIGHT);
+		renderer.setYLabelsAlign(Align.RIGHT);
 		return renderer;
 	}
 

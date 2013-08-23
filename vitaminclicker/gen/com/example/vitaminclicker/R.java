@@ -34,19 +34,39 @@ public final class R {
         public static final int vitamin_count_progress=0x7f020005;
     }
     public static final class id {
+        public static final int aboutTextView=0x7f080004;
         public static final int buttonCount=0x7f080000;
         public static final int buttonStatistics=0x7f080003;
+        public static final int editText1=0x7f080006;
+        public static final int gitHubLink=0x7f08000f;
+        public static final int imageView1=0x7f080005;
+        public static final int infoTextView=0x7f080007;
         public static final int progressBar=0x7f080001;
+        public static final int tableLayout1=0x7f080008;
+        public static final int tableRow1=0x7f080009;
+        public static final int tableRow2=0x7f08000b;
+        public static final int tableRow3=0x7f08000e;
+        public static final int textViewDeveloper=0x7f08000a;
+        public static final int textViewVersion=0x7f08000c;
+        public static final int textViewVersionNo=0x7f08000d;
         public static final int vitaminCount=0x7f080002;
     }
     public static final class layout {
         public static final int activity_home=0x7f030000;
+        public static final int activity_info=0x7f030001;
     }
     public static final class string {
+        public static final int about=0x7f060007;
         public static final int app_name=0x7f060000;
         public static final int btn_click_label=0x7f060001;
         public static final int btn_statistics_label=0x7f060002;
         public static final int day=0x7f060003;
+        public static final int developer=0x7f060008;
+        public static final int githubLink=0x7f06000b;
+        public static final int info=0x7f060006;
+        public static final int menu_info=0x7f060005;
+        public static final int source_code=0x7f06000a;
+        public static final int version=0x7f060009;
         public static final int vitamin_counts=0x7f060004;
     }
     public static final class style {

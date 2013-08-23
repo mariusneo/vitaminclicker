@@ -47,7 +47,6 @@ public class StatisticsActivity extends Activity {
 	private TimeSeries mSeries;
 	private GraphicalView mGraphicalView;
 	
-	
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
